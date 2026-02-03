@@ -31,7 +31,7 @@ def get_current_price():
         soup = BeautifulSoup(res.text, "html.parser")
         row = soup.find('tbody').find_all('tr')[0]
         cells = row.find_all('td')
-        return float(cells[3].text.strip().replace(',', ''))
+        return float(cells[2].text.strip().replace(',', ''))
     except Exception as e:
         print(f"抓取失敗: {e}")
         return None
