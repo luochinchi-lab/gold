@@ -1,25 +1,31 @@
 import requests
 from bs4 import BeautifulSoup
 import os
+from linebot import LineBotApi
+from linebot.models import TextSendMessage
+from linebot.exceptions import LineBotApiError
 
 # ================= 設定區 =================
-# 從 GitHub Secrets 讀取 Token，比較安全
-LINE_TOKEN = os.environ.get("LINE_TOKEN")
-# 用來記錄上次價格的檔案名稱
+# 從 GitHub Secrets 讀取變數
+CHANNEL_ACCESS_TOKEN = os.environ.get("CHANNEL_ACCESS_TOKEN")
+USER_ID = os.environ.get("USER_ID")
 HISTORY_FILE = "last_price.txt"
 # =========================================
 
-def send_line_notify(msg):
-    if not LINE_TOKEN:
-        print("未設定 LINE_TOKEN")
+def send_line_push(msg):
+    if not CHANNEL_ACCESS_TOKEN or not USER_ID:
+        print("錯誤：未設定 Token 或 User ID")
         return
-    url = "https://notify-api.line.me/api/notify"
-    headers = {"Authorization": "Bearer " + LINE_TOKEN}
-    payload = {'message': msg}
+
+    # 初始化 Line Bot API
+    line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
+    
     try:
-        requests.post(url, headers=headers, params=payload)
-    except Exception as e:
-        print(f"發送 Line 失敗: {e}")
+        # 使用 push_message 主動推播
+        line_bot_api.push_message(USER_ID, TextSendMessage(text=msg))
+        print("Line Bot 通知發送成功")
+    except LineBotApiError as e:
+        print(f"發送失敗: {e}")
 
 def get_current_price():
     try:
@@ -36,7 +42,7 @@ def get_current_price():
         return None
 
 def main():
-    print("--- 開始執行價格檢查 ---")
+    print("--- 開始執行價格檢查 (Bot 版) ---")
     current_price = get_current_price()
     
     if not current_price:
@@ -56,24 +62,23 @@ def main():
 
     print(f"目前價格: {current_price}, 上次價格: {last_price}")
 
-    # 比對價格 (如果上次是 0，代表第一次執行，不通知，只存檔)
+    # 比對價格
     if last_price != 0 and current_price != last_price:
         diff = current_price - last_price
         icon = "🔺 漲" if diff > 0 else "🔻 跌"
         trend = f"+{diff}" if diff > 0 else f"{diff}"
         
         msg = (
-            f"\n{icon} 金價變動通知！\n"
-            f"最新價格: {current_price}\n"
-            f"變動幅度: {trend} 元\n"
+            f"{icon} 金價變動通知\n"
+            f"最新: {current_price}\n"
+            f"幅度: {trend}\n"
             f"(前次: {last_price})"
         )
-        send_line_notify(msg)
-        print("已發送通知")
+        send_line_push(msg)
     else:
         print("價格無變動或為首次執行")
 
-    # 將最新價格寫入檔案，供下次比對
+    # 存檔
     with open(HISTORY_FILE, "w") as f:
         f.write(str(current_price))
 
