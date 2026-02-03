@@ -2,11 +2,8 @@ name: Gold Price Check
 
 on:
   schedule:
-    # 設定每 15 分鐘執行一次 (格式為 cron table)
-    # 注意：GitHub Actions 的定時器通常會有幾分鐘的延遲，這很正常
-    - cron: '*/15 * * * *'
-  # 允許手動點擊按鈕執行 (方便測試用)
-  workflow_dispatch:
+    - cron: '*/15 * * * *' # 每15分鐘執行
+  workflow_dispatch: # 手動執行按鈕
 
 permissions:
   contents: write
@@ -24,12 +21,22 @@ jobs:
       with:
         python-version: '3.9'
 
-# ... 前面步驟都一樣 ...
+    # --- 修改重點在這裡 ---
+    - name: 安裝套件
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests beautifulsoup4 line-bot-sdk<3.0.0
+    # --------------------
+
     - name: 執行監控程式
       env:
-        # 這裡改用新的環境變數名稱
         CHANNEL_ACCESS_TOKEN: ${{ secrets.CHANNEL_ACCESS_TOKEN }}
         USER_ID: ${{ secrets.USER_ID }}
       run: |
         python main.py
-    # ... 後面步驟一樣 ...
+
+    - name: 儲存最新價格 (Commit changes)
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: "Update gold price history"
+        file_pattern: "last_price.txt"
