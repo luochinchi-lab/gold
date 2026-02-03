@@ -6,26 +6,30 @@ from linebot.models import TextSendMessage
 from linebot.exceptions import LineBotApiError
 
 # ================= 設定區 =================
-# 從 GitHub Secrets 讀取變數
 CHANNEL_ACCESS_TOKEN = os.environ.get("CHANNEL_ACCESS_TOKEN")
 USER_ID = os.environ.get("USER_ID")
 HISTORY_FILE = "last_price.txt"
 # =========================================
 
 def send_line_push(msg):
-    if not CHANNEL_ACCESS_TOKEN or not USER_ID:
-        print("錯誤：未設定 Token 或 User ID")
+    # 這裡加強了錯誤檢查
+    if not CHANNEL_ACCESS_TOKEN:
+        print("❌ 錯誤：GitHub Secrets 裡找不到 CHANNEL_ACCESS_TOKEN")
+        return
+    if not USER_ID:
+        print("❌ 錯誤：GitHub Secrets 裡找不到 USER_ID")
         return
 
-    # 初始化 Line Bot API
+    print(f"嘗試發送訊息給 User ID: {USER_ID[:5]}...") # 只印出前5碼確認
+
     line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
-    
     try:
-        # 使用 push_message 主動推播
         line_bot_api.push_message(USER_ID, TextSendMessage(text=msg))
-        print("Line Bot 通知發送成功")
+        print("✅ Line 通知發送成功！如果沒收到，請檢查是否已封鎖機器人。")
     except LineBotApiError as e:
-        print(f"發送失敗: {e}")
+        print(f"❌ 發送失敗，Line 回傳錯誤碼: {e.status_code}")
+        print(f"錯誤詳情: {e.error.message}")
+        print("檢查重點：\n1. Token 是否過期或貼錯？\n2. User ID 是否填成 Line ID (這是不對的)？")
 
 def get_current_price():
     try:
@@ -35,52 +39,26 @@ def get_current_price():
         soup = BeautifulSoup(res.text, "html.parser")
         row = soup.find('tbody').find_all('tr')[0]
         cells = row.find_all('td')
-        # 本行賣出價格
         return float(cells[3].text.strip().replace(',', ''))
     except Exception as e:
         print(f"抓取錯誤: {e}")
         return None
 
 def main():
-    print("--- 開始執行價格檢查 (Bot 版) ---")
-    current_price = get_current_price()
+    print("--- 啟動強制測試模式 ---")
     
-    if not current_price:
-        print("無法取得價格，結束。")
-        return
+    # 【測試區】不管價格如何，先發一則測試訊息
+    test_msg = "🔔 這是測試訊息！\n如果看到這個，代表你的機器人設定完全正確。"
+    send_line_push(test_msg)
+    # -------------------------------------
 
-    # 讀取上次的價格
-    last_price = 0.0
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r") as f:
-            try:
-                content = f.read().strip()
-                if content:
-                    last_price = float(content)
-            except:
-                pass
-
-    print(f"目前價格: {current_price}, 上次價格: {last_price}")
-
-    # 比對價格
-    if last_price != 0 and current_price != last_price:
-        diff = current_price - last_price
-        icon = "🔺 漲" if diff > 0 else "🔻 跌"
-        trend = f"+{diff}" if diff > 0 else f"{diff}"
+    current_price = get_current_price()
+    if current_price:
+        print(f"目前抓取到的金價: {current_price}")
         
-        msg = (
-            f"{icon} 金價變動通知\n"
-            f"最新: {current_price}\n"
-            f"幅度: {trend}\n"
-            f"(前次: {last_price})"
-        )
-        send_line_push(msg)
-    else:
-        print("價格無變動或為首次執行")
-
-    # 存檔
-    with open(HISTORY_FILE, "w") as f:
-        f.write(str(current_price))
+        # 為了測試，強制把價格寫入，不論是否有變動
+        with open(HISTORY_FILE, "w") as f:
+            f.write(str(current_price))
 
 if __name__ == "__main__":
     main()
