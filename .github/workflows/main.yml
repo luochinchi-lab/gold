@@ -24,20 +24,12 @@ jobs:
       with:
         python-version: '3.9'
 
-    - name: 安裝套件
-      run: |
-        pip install -r requirements.txt
-
+# ... 前面步驟都一樣 ...
     - name: 執行監控程式
       env:
-        # 將剛剛設定的 Secret 傳入程式環境
-        LINE_TOKEN: ${{ secrets.LINE_TOKEN }}
+        # 這裡改用新的環境變數名稱
+        CHANNEL_ACCESS_TOKEN: ${{ secrets.CHANNEL_ACCESS_TOKEN }}
+        USER_ID: ${{ secrets.USER_ID }}
       run: |
         python main.py
-
-    - name: 儲存最新價格 (Commit changes)
-      # 如果價格檔案有變動，將它存回 GitHub，這樣下次才能比對
-      uses: stefanzweifel/git-auto-commit-action@v4
-      with:
-        commit_message: "Update gold price history"
-        file_pattern: "last_price.txt"
+    # ... 後面步驟一樣 ...
