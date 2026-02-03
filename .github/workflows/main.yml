@@ -1,0 +1,43 @@
+name: Gold Price Check
+
+on:
+  schedule:
+    # 設定每 15 分鐘執行一次 (格式為 cron table)
+    # 注意：GitHub Actions 的定時器通常會有幾分鐘的延遲，這很正常
+    - cron: '*/15 * * * *'
+  # 允許手動點擊按鈕執行 (方便測試用)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-price:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 下載程式碼 (Checkout)
+      uses: actions/checkout@v3
+
+    - name: 設定 Python 環境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: 安裝套件
+      run: |
+        pip install -r requirements.txt
+
+    - name: 執行監控程式
+      env:
+        # 將剛剛設定的 Secret 傳入程式環境
+        LINE_TOKEN: ${{ secrets.LINE_TOKEN }}
+      run: |
+        python main.py
+
+    - name: 儲存最新價格 (Commit changes)
+      # 如果價格檔案有變動，將它存回 GitHub，這樣下次才能比對
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: "Update gold price history"
+        file_pattern: "last_price.txt"
